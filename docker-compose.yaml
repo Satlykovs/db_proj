@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: autoservice_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: autoservice_pro
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d autoservice_pro"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - autoservice_net
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: autoservice_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@autoservice.ru
+      PGADMIN_DEFAULT_PASSWORD: admin_secret
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    configs:
+      - source: pgadmin-pgpass
+        target: /config/pgpass
+        uid: "5050"
+        gid: "5050"
+        mode: 0400
+      - source: pgadmin-servers
+        target: /pgadmin4/servers.json
+        mode: 0444
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autoservice_net
+
+configs:
+  pgadmin-pgpass:
+    content: |
+      postgres:5432:*:admin:admin_secret
+  pgadmin-servers:
+    content: |
+      {
+        "Servers": {
+          "1": {
+            "Name": "AutoService Pro",
+            "Group": "Servers",
+            "Host": "postgres",
+            "Port": 5432,
+            "MaintenanceDB": "autoservice_pro",
+            "Username": "admin",
+            "SSLMode": "prefer",
+            "PassFile": "/config/pgpass"
+          }
+        }
+      }
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  autoservice_net:
+    driver: bridge
