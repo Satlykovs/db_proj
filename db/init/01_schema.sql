@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS
     reviews, warranty_claims, records, work_order_parts, work_order_items,
     work_orders, auto_service_storage, parts, staff, services,
-    service_categories, cars, users, auto_services
+    service_categories, cars, users, auto_services, notifications
 CASCADE;
 
 DROP TYPE IF EXISTS specialization;
@@ -14,10 +14,12 @@ CREATE TABLE auto_services (
     lifts_count INTEGER NOT NULL CHECK (lifts_count > 0),
     specialization VARCHAR(20) NOT NULL DEFAULT 'universal'
         CHECK (specialization IN ('universal', 'german', 'japanese', 'electric')),
-    open_time TIME NOT NULL,
-    close_time TIME NOT NULL
+    open_time TIME,
+    close_time TIME,
+    around_the_clock BOOLEAN NOT NULL,
 
-    CHECK (open_time != close_time)
+    CHECK ((around_the_clock = TRUE AND (open_time IS NULL AND close_time IS NULL)) 
+    OR around_the_clock = FALSE AND (open_time IS NOT NULL AND close_time IS NOT NULL AND open_time <> close_time))
 );
 
 CREATE TABLE users (
@@ -56,7 +58,7 @@ CREATE TABLE services (
     category_id INTEGER NOT NULL REFERENCES service_categories(id) ON DELETE RESTRICT,
     name VARCHAR(150) NOT NULL,
     base_price NUMERIC(9, 2) NOT NULL CHECK (base_price >= 0),
-    standard_hours NUMERIC(4, 2) DEFAULT 0 NOT NULL CHECK (standard_hours >= 0),
+    standard_hours NUMERIC(4, 2) NOT NULL CHECK (standard_hours > 0),
     warranty_months SMALLINT DEFAULT 0 NOT NULL CHECK (warranty_months >= 0),
     warranty_mileage_km INTEGER DEFAULT 0 NOT NULL CHECK (warranty_mileage_km >= 0),
     
@@ -79,7 +81,8 @@ CREATE TABLE staff (
         END
     ) STORED, 
 
-    CHECK ((review_count = 0 AND review_sum = 0) OR (review_count > 0 AND review_sum > 0))
+    CHECK ((review_count = 0 AND review_sum = 0) OR (review_count > 0 AND review_sum > 0)),
+    CHECK (review_count >= 0 AND review_sum BETWEEN review_count AND review_count * 5)
 );
 
 CREATE TABLE records (
@@ -169,21 +172,23 @@ CREATE TABLE reviews (
 
 CREATE TABLE notifications (
     id          SERIAL PRIMARY KEY,
-    user_id     INT NOT NULL REFERENCES users(id),
-    car_id      INT NOT NULL REFERENCES cars(id),
+    user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    car_id      INT NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
     message     TEXT NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_cars_user                 ON cars (user_id);
-CREATE INDEX idx_woi_order                 ON work_order_items (work_order_id);
-CREATE INDEX idx_staff_service_spec        ON staff (auto_service_id, specialization);
-CREATE INDEX idx_woi_staff                 ON work_order_items (staff_id);
-CREATE INDEX idx_woi_service               ON work_order_items (service_id);
-CREATE INDEX idx_wop_part                  ON work_order_parts (part_id);
-CREATE INDEX idx_records_service_time      ON records (auto_service_id, scheduled_at);
-CREATE INDEX idx_records_car               ON records (car_id, scheduled_at);
-CREATE INDEX idx_records_user              ON records (user_id, scheduled_at);
-CREATE INDEX idx_notifications_car_created ON notifications (car_id, created_at DESC);
-CREATE INDEX idx_claims_item               ON warranty_claims (work_order_item_id);
-CREATE INDEX idx_reviews_staff             ON reviews (staff_id);
+CREATE INDEX idx_cars_user                  ON cars (user_id);
+CREATE INDEX idx_woi_order                  ON work_order_items (work_order_id);
+CREATE INDEX idx_staff_service_spec         ON staff (auto_service_id, specialization);
+CREATE INDEX idx_woi_staff                  ON work_order_items (staff_id);
+CREATE INDEX idx_woi_service                ON work_order_items (service_id);
+CREATE INDEX idx_wop_part                   ON work_order_parts (part_id);
+CREATE INDEX idx_records_service_time       ON records (auto_service_id, scheduled_at);
+CREATE INDEX idx_records_car                ON records (car_id, scheduled_at DESC);
+CREATE INDEX idx_records_user               ON records (user_id, scheduled_at);
+CREATE INDEX idx_notifications_user_created ON notifications (user_id, created_at DESC);
+CREATE INDEX idx_notifications_car          ON notifications (car_id);
+CREATE INDEX idx_claims_item                ON warranty_claims (work_order_item_id);
+CREATE INDEX idx_reviews_staff              ON reviews (staff_id);
+CREATE INDEX idx_wo_started_at              ON work_orders (started_at, status);
