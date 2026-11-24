@@ -5,6 +5,7 @@ description = "Seed data generator for AutoService Pro database"
 requires-python = ">=3.10"
 dependencies = [
     "mimesis>=18.0.0",
+    "rich (>=15.0.0,<16.0.0)",
 ]
 
 [tool.poetry]

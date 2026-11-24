@@ -1,12 +1,13 @@
+from dataclasses import astuple, fields, is_dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
+from typing import ClassVar, Protocol
 
 
-class RawSQL:
-    """Обёртка для SQL-кода."""
+class DbModel(Protocol):
+    """Контракт для моделей: любой dataclass с указанием имени таблицы."""
 
-    def __init__(self, val: str):
-        self.val = val
+    __table__: ClassVar[str]
 
 
 def format_value(v) -> str:
@@ -15,8 +16,6 @@ def format_value(v) -> str:
         return "NULL"
     if isinstance(v, bool):
         return "TRUE" if v else "FALSE"
-    if isinstance(v, RawSQL):
-        return v.val
     if isinstance(v, (int, float, Decimal)):
         return str(v)
     if isinstance(v, datetime):
@@ -31,7 +30,7 @@ def format_value(v) -> str:
 
 
 class SqlWriter:
-    """Класс для записи данных батчами в .sql файл."""
+    """Записывает модели батчами в .sql файл."""
 
     def __init__(self, filepath: str):
         self.filepath = filepath
@@ -57,23 +56,26 @@ class SqlWriter:
     def write_comment(self, text: str):
         self.f.write(f"\n-- {text}\n")
 
-    def insert_batch(
-        self, table: str, columns: list[str], rows: list[tuple], batch_size: int = 1000
-    ):
-        """INSERT-запрос. Батчинг."""
-        if not rows:
+    def insert(self, models: list[DbModel], batch_size: int = 1000):
+        """Генерирует батчевый INSERT из списка датаклассов."""
+        if not models:
             return
 
+        sample = models[0]
+        if not is_dataclass(sample):
+            raise TypeError(f"Ожидался dataclass, получен {type(sample)}")
+
+        table = sample.__table__
+        columns = [f.name for f in fields(sample)]
         cols_joined = ", ".join(columns)
 
-        for i in range(0, len(rows), batch_size):
-            batch = rows[i : i + batch_size]
-
+        for i in range(0, len(models), batch_size):
+            batch = models[i : i + batch_size]
             self.f.write(f"INSERT INTO {table} ({cols_joined}) VALUES\n")
 
             formatted_rows = []
-            for row in batch:
-                formatted_vals = [format_value(val) for val in row]
-                formatted_rows.append("(" + ", ".join(formatted_vals) + ")")
+            for model in batch:
+                values = [format_value(val) for val in astuple(model)]
+                formatted_rows.append("(" + ", ".join(values) + ")")
 
             self.f.write(",\n".join(formatted_rows) + ";\n\n")
