@@ -16,10 +16,10 @@ CREATE TABLE auto_services (
         CHECK (specialization IN ('universal', 'german', 'japanese', 'electric')),
     open_time TIME,
     close_time TIME,
-    around_the_clock BOOLEAN NOT NULL,
+    is_24_hours BOOLEAN NOT NULL,
 
-    CHECK ((around_the_clock = TRUE AND (open_time IS NULL AND close_time IS NULL)) 
-    OR around_the_clock = FALSE AND (open_time IS NOT NULL AND close_time IS NOT NULL AND open_time <> close_time))
+    CHECK ((is_24_hours = TRUE AND (open_time IS NULL AND close_time IS NULL)) 
+    OR is_24_hours = FALSE AND (open_time IS NOT NULL AND close_time IS NOT NULL AND open_time <> close_time))
 );
 
 CREATE TABLE users (
