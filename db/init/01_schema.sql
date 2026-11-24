@@ -81,7 +81,6 @@ CREATE TABLE staff (
         END
     ) STORED, 
 
-    CHECK ((review_count = 0 AND review_sum = 0) OR (review_count > 0 AND review_sum > 0)),
     CHECK (review_count >= 0 AND review_sum BETWEEN review_count AND review_count * 5)
 );
 
