@@ -5,9 +5,22 @@ description = "Seed data generator for AutoService Pro database"
 requires-python = ">=3.10"
 dependencies = [
     "mimesis>=18.0.0",
+    "rich (>=15.0.0,<16.0.0)",
 ]
 
 [tool.poetry]
 package-mode = false
 
 
+[dependency-groups]
+dev = [
+    "ruff (>=0.17.6,<0.18.0)"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
